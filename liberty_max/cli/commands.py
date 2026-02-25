@@ -208,7 +208,7 @@ def _create_workspace_templates(workspace: Path):
     """Create default workspace template files from bundled templates."""
     from importlib.resources import files as pkg_files
 
-    templates_dir = pkg_files("liberty-max") / "templates"
+    templates_dir = pkg_files("liberty_max") / "templates"
 
     for item in templates_dir.iterdir():
         if not item.name.endswith(".md"):
