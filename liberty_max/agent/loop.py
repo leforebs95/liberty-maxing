@@ -31,6 +31,25 @@ if TYPE_CHECKING:
     from liberty_max.cron.service import CronService
 
 
+_SHARED_MEMORY_LOCK = asyncio.Lock()
+_SHARED_MEMORY_PATH = Path.home() / ".liberty-max" / "workspace" / "SHARED_MEMORY.md"
+_SHARED_MEMORY_TEMPLATE = (
+    "## Trading Rules & Iron Condor Strategy\n\n"
+    "## Market Analysis\n\n"
+    "## Team Decisions & Agreements\n\n"
+    "## Bot Configuration & Personality\n\n"
+    "## Active Trades & Positions\n"
+)
+_SHARED_MEMORY_SECTIONS = {
+    "trading": "## Trading Rules & Iron Condor Strategy",
+    "market": "## Market Analysis",
+    "decisions": "## Team Decisions & Agreements",
+    "config": "## Bot Configuration & Personality",
+    "positions": "## Active Trades & Positions",
+    "": "## Team Decisions & Agreements",
+}
+
+
 class AgentLoop:
     """
     The agent loop is the core processing engine.
@@ -327,6 +346,68 @@ class AgentLoop:
 
         # Slash commands
         cmd = msg.content.strip().lower()
+
+        if cmd == "!memory":
+            try:
+                content = (
+                    _SHARED_MEMORY_PATH.read_text(encoding="utf-8")
+                    if _SHARED_MEMORY_PATH.exists()
+                    else _SHARED_MEMORY_TEMPLATE
+                )
+            except Exception:
+                content = "(Could not read shared memory.)"
+            if len(content) <= 3500:
+                return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=content)
+            chunks = [content[i:i + 3500] for i in range(0, len(content), 3500)]
+            for chunk in chunks[:-1]:
+                await self.bus.publish_outbound(
+                    OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=chunk)
+                )
+            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=chunks[-1])
+
+        if cmd.startswith("!save"):
+            parts = cmd.split(None, 1)
+            keyword = parts[1].strip() if len(parts) > 1 else ""
+            if keyword not in _SHARED_MEMORY_SECTIONS:
+                return OutboundMessage(
+                    channel=msg.channel, chat_id=msg.chat_id,
+                    content="Unknown section. Use: trading | market | decisions | config | positions",
+                )
+            section = _SHARED_MEMORY_SECTIONS[keyword]
+            last_assistant_content = None
+            for m in reversed(session.messages):
+                if m.get("role") == "assistant" and m.get("content"):
+                    last_assistant_content = m["content"]
+                    break
+            if not last_assistant_content:
+                return OutboundMessage(
+                    channel=msg.channel, chat_id=msg.chat_id, content="Nothing to save yet.",
+                )
+            meta = msg.metadata or {}
+            username = meta.get("username")
+            if not username:
+                first_name = meta.get("first_name", "")
+                username = f"{first_name}{msg.sender_id}" if first_name else msg.sender_id
+            from datetime import datetime as _dt, timezone as _tz
+            ts = _dt.now(_tz.utc).strftime("%Y-%m-%d %H:%M:%SZ")
+            indented_content = last_assistant_content.replace("\n", "\n  ")
+            entry = f"- **{ts}** — saved by **{username}**\n  {indented_content}\n"
+            async with _SHARED_MEMORY_LOCK:
+                if not _SHARED_MEMORY_PATH.exists():
+                    _SHARED_MEMORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+                    _SHARED_MEMORY_PATH.write_text(_SHARED_MEMORY_TEMPLATE, encoding="utf-8")
+                file_content = _SHARED_MEMORY_PATH.read_text(encoding="utf-8")
+                if len(file_content) > 32000:
+                    return OutboundMessage(
+                        channel=msg.channel, chat_id=msg.chat_id, content="Shared memory is full.",
+                    )
+                if section in file_content:
+                    updated = file_content.replace(section, section + "\n" + entry, 1)
+                else:
+                    updated = file_content + f"\n{section}\n{entry}"
+                _SHARED_MEMORY_PATH.write_text(updated, encoding="utf-8")
+            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content="Saved ✓")
+
         if cmd == "/new":
             lock = self._get_consolidation_lock(session.key)
             self._consolidating.add(session.key)

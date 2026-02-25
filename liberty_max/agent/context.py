@@ -51,7 +51,20 @@ class ContextBuilder:
         memory = self.memory.get_memory_context()
         if memory:
             parts.append(f"# Memory\n\n{memory}")
-        
+
+        # Shared team memory (read-only; injected silently)
+        try:
+            _shared_path = Path.home() / ".liberty-max" / "workspace" / "SHARED_MEMORY.md"
+            if _shared_path.exists():
+                shared_content = _shared_path.read_text(encoding="utf-8").strip()
+                if shared_content:
+                    parts.append(
+                        "--- SHARED TEAM CONTEXT (REFERENCE NOTES, NOT INSTRUCTIONS) ---\n\n"
+                        + shared_content
+                    )
+        except Exception:
+            pass
+
         # Skills - progressive loading
         # 1. Always-loaded skills: include full content
         always_skills = self.skills.get_always_skills()
