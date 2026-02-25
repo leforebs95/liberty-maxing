@@ -12,6 +12,14 @@ from liberty_max.agent.memory import MemoryStore
 from liberty_max.agent.skills import SkillsLoader
 
 
+def _session_namespace(session_key: str) -> str:
+    """Convert a session key to a safe directory-name namespace.
+
+    ``telegram:123456789`` → ``telegram_123456789``
+    """
+    return session_key.replace(":", "_")
+
+
 class ContextBuilder:
     """
     Builds the context (system prompt + messages) for the agent.
@@ -24,31 +32,46 @@ class ContextBuilder:
     
     def __init__(self, workspace: Path):
         self.workspace = workspace
-        self.memory = MemoryStore(workspace)
+        self.memory = MemoryStore(workspace)  # default (CLI / no-namespace) store
         self.skills = SkillsLoader(workspace)
     
-    def build_system_prompt(self, skill_names: list[str] | None = None) -> str:
+    def build_system_prompt(
+        self,
+        skill_names: list[str] | None = None,
+        session_key: str | None = None,
+    ) -> str:
         """
         Build the system prompt from bootstrap files, memory, and skills.
-        
+
         Args:
             skill_names: Optional list of skills to include.
-        
+            session_key: Session key (e.g. ``telegram:123456789``).  When
+                provided a per-user namespaced :class:`MemoryStore` is used so
+                that different users have isolated MEMORY.md / HISTORY.md files.
+
         Returns:
             Complete system prompt.
         """
+        if session_key:
+            namespace = _session_namespace(session_key)
+            memory_store = MemoryStore(self.workspace, namespace=namespace)
+        else:
+            namespace = None
+            memory_store = self.memory
+
         parts = []
-        
-        # Core identity
-        parts.append(self._get_identity())
-        
+
+        # Core identity — pass the resolved memory directory so path references
+        # in the system prompt point to the correct per-user location.
+        parts.append(self._get_identity(memory_dir=memory_store.memory_dir))
+
         # Bootstrap files
         bootstrap = self._load_bootstrap_files()
         if bootstrap:
             parts.append(bootstrap)
-        
+
         # Memory context
-        memory = self.memory.get_memory_context()
+        memory = memory_store.get_memory_context()
         if memory:
             parts.append(f"# Memory\n\n{memory}")
         
@@ -72,23 +95,29 @@ Skills with available="false" need dependencies installed first - you can try in
         
         return "\n\n---\n\n".join(parts)
     
-    def _get_identity(self) -> str:
-        """Get the core identity section."""
+    def _get_identity(self, memory_dir: Path | None = None) -> str:
+        """Get the core identity section.
+
+        Args:
+            memory_dir: Resolved memory directory for this session.  When
+                ``None`` defaults to ``workspace/memory/`` (global / CLI mode).
+        """
         workspace_path = str(self.workspace.expanduser().resolve())
+        mem_dir = str((memory_dir or (self.workspace / "memory")).expanduser().resolve())
         system = platform.system()
         runtime = f"{'macOS' if system == 'Darwin' else system} {platform.machine()}, Python {platform.python_version()}"
-        
+
         return f"""# liberty-max 🐈
 
-You are liberty-max, a helpful AI assistant. 
+You are liberty-max, a helpful AI assistant.
 
 ## Runtime
 {runtime}
 
 ## Workspace
 Your workspace is at: {workspace_path}
-- Long-term memory: {workspace_path}/memory/MEMORY.md
-- History log: {workspace_path}/memory/HISTORY.md (grep-searchable)
+- Long-term memory: {mem_dir}/MEMORY.md
+- History log: {mem_dir}/HISTORY.md (grep-searchable)
 - Custom skills: {workspace_path}/skills/{{skill-name}}/SKILL.md
 
 Reply directly with text for conversations. Only use the 'message' tool to send to a specific chat channel.
@@ -101,8 +130,8 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
 - If a tool call fails, analyze the error before retrying with a different approach.
 
 ## Memory
-- Remember important facts: write to {workspace_path}/memory/MEMORY.md
-- Recall past events: grep {workspace_path}/memory/HISTORY.md"""
+- Remember important facts: write to {mem_dir}/MEMORY.md
+- Recall past events: grep {mem_dir}/HISTORY.md"""
 
     @staticmethod
     def _inject_runtime_context(
@@ -141,6 +170,7 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
         media: list[str] | None = None,
         channel: str | None = None,
         chat_id: str | None = None,
+        session_key: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Build the complete message list for an LLM call.
@@ -152,14 +182,15 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
             media: Optional list of local file paths for images/media.
             channel: Current channel (telegram, feishu, etc.).
             chat_id: Current chat/user ID.
+            session_key: Session key used to select per-user memory storage.
 
         Returns:
             List of messages including system prompt.
         """
         messages = []
 
-        # System prompt
-        system_prompt = self.build_system_prompt(skill_names)
+        # System prompt — pass session_key so per-user memory is loaded
+        system_prompt = self.build_system_prompt(skill_names, session_key=session_key)
         messages.append({"role": "system", "content": system_prompt})
 
         # History
