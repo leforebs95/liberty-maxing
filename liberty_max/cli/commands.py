@@ -411,14 +411,52 @@ def gateway(
     
     console.print(f"[green]✓[/green] Heartbeat: every {hb_cfg.interval_s}s")
     
+    _config_changed = [False]  # mutable flag accessible from nested coroutines
+
     async def run():
+        from liberty_max.config.loader import get_config_path
+
+        async def _watch_config():
+            """Poll config.json every 2 s and signal restart when it changes."""
+            path = get_config_path()
+            try:
+                last_mtime = path.stat().st_mtime
+            except FileNotFoundError:
+                last_mtime = None
+            while True:
+                await asyncio.sleep(2)
+                try:
+                    mtime = path.stat().st_mtime
+                except FileNotFoundError:
+                    mtime = None
+                if mtime is not None and mtime != last_mtime:
+                    last_mtime = mtime
+                    console.print(
+                        "[yellow]⚙  config.json changed — reloading gateway...[/yellow]"
+                    )
+                    _config_changed[0] = True
+                    return
+
+        async def _run_gateway():
+            await asyncio.gather(agent.run(), channels.start_all())
+
         try:
             await cron.start()
             await heartbeat.start()
-            await asyncio.gather(
-                agent.run(),
-                channels.start_all(),
+
+            watcher = asyncio.create_task(_watch_config())
+            gateway = asyncio.create_task(_run_gateway())
+
+            done, pending = await asyncio.wait(
+                {watcher, gateway},
+                return_when=asyncio.FIRST_COMPLETED,
             )
+            for t in pending:
+                t.cancel()
+                try:
+                    await t
+                except (asyncio.CancelledError, Exception):
+                    pass
         except KeyboardInterrupt:
             console.print("\nShutting down...")
         finally:
@@ -427,8 +465,13 @@ def gateway(
             cron.stop()
             agent.stop()
             await channels.stop_all()
-    
+
     asyncio.run(run())
+
+    if _config_changed[0]:
+        # Clean exit triggers Docker's restart: unless-stopped policy,
+        # which restarts the gateway with the updated config.
+        raise SystemExit(0)
 
 
 
