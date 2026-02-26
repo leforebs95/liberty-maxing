@@ -43,10 +43,20 @@ _SAVE_MEMORY_TOOL = [
 
 
 class MemoryStore:
-    """Two-layer memory: MEMORY.md (long-term facts) + HISTORY.md (grep-searchable log)."""
+    """Two-layer memory: MEMORY.md (long-term facts) + HISTORY.md (grep-searchable log).
 
-    def __init__(self, workspace: Path):
-        self.memory_dir = ensure_dir(workspace / "memory")
+    When ``namespace`` is provided, memory files are stored in a per-user/per-session
+    subdirectory (``workspace/memory/{namespace}/``) so that different Telegram users
+    (or other channel users) each have isolated memories.  The root-level
+    ``workspace/memory/`` directory is used only when no namespace is given (e.g.
+    CLI mode, backward-compatible path).
+    """
+
+    def __init__(self, workspace: Path, namespace: str | None = None):
+        if namespace:
+            self.memory_dir = ensure_dir(workspace / "memory" / namespace)
+        else:
+            self.memory_dir = ensure_dir(workspace / "memory")
         self.memory_file = self.memory_dir / "MEMORY.md"
         self.history_file = self.memory_dir / "HISTORY.md"
 

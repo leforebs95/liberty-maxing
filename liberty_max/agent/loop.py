@@ -312,6 +312,7 @@ class AgentLoop:
             messages = self.context.build_messages(
                 history=history,
                 current_message=msg.content, channel=channel, chat_id=chat_id,
+                session_key=key,
             )
             final_content, _, all_msgs = await self._run_agent_loop(messages)
             self._save_turn(session, all_msgs, 1 + len(history))
@@ -390,6 +391,7 @@ class AgentLoop:
             current_message=msg.content,
             media=msg.media if msg.media else None,
             channel=msg.channel, chat_id=msg.chat_id,
+            session_key=key,
         )
 
         async def _bus_progress(content: str, *, tool_hint: bool = False) -> None:
@@ -438,8 +440,14 @@ class AgentLoop:
         session.updated_at = datetime.now()
 
     async def _consolidate_memory(self, session, archive_all: bool = False) -> bool:
-        """Delegate to MemoryStore.consolidate(). Returns True on success."""
-        return await MemoryStore(self.workspace).consolidate(
+        """Delegate to MemoryStore.consolidate(). Returns True on success.
+
+        Uses a per-session namespaced MemoryStore so that each user's memories
+        are stored in their own ``workspace/memory/{namespace}/`` directory.
+        """
+        from liberty_max.agent.context import _session_namespace
+        namespace = _session_namespace(session.key)
+        return await MemoryStore(self.workspace, namespace=namespace).consolidate(
             session, self.provider, self.model,
             archive_all=archive_all, memory_window=self.memory_window,
         )
