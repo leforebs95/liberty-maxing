@@ -18,8 +18,14 @@ from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 
-from liberty-max import __version__, __logo__
+from liberty_max import __version__, __logo__
 from liberty_max.config.schema import Config
+
+# Ensure stdout/stderr can render Unicode (e.g. emoji) on Windows without PYTHONUTF8=1
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 app = typer.Typer(
     name="liberty-max",
@@ -202,7 +208,7 @@ def _create_workspace_templates(workspace: Path):
     """Create default workspace template files from bundled templates."""
     from importlib.resources import files as pkg_files
 
-    templates_dir = pkg_files("liberty-max") / "templates"
+    templates_dir = pkg_files("liberty_max") / "templates"
 
     for item in templates_dir.iterdir():
         if not item.name.endswith(".md"):
