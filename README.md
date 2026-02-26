@@ -114,7 +114,7 @@ pip install liberty-max-ai
 ## 🚀 Quick Start
 
 > [!TIP]
-> Set your API key in `~/.liberty-max/config.json`.
+> Set your API key in `config.json`.
 > Get API keys: [OpenRouter](https://openrouter.ai/keys) (Global) · [Brave Search](https://brave.com/search/api/) (optional, for web search)
 
 **1. Initialize**
@@ -123,7 +123,7 @@ pip install liberty-max-ai
 liberty-max onboard
 ```
 
-**2. Configure** (`~/.liberty-max/config.json`)
+**2. Configure** (`config.json`)
 
 Add or merge these **two parts** into your config (other options have defaults).
 
@@ -220,7 +220,7 @@ Simply send this message to liberty-max (replace `xxx@xxx` with your real email)
 Read https://raw.githubusercontent.com/HKUDS/MoChat/refs/heads/main/skills/liberty-max/skill.md and register on MoChat. My Email account is xxx@xxx Bind me as your owner and DM me on MoChat.
 ```
 
-liberty-max will automatically register, configure `~/.liberty-max/config.json`, and connect to Mochat.
+liberty-max will automatically register, configure `config.json`, and connect to Mochat.
 
 **2. Restart gateway**
 
@@ -235,7 +235,7 @@ That's it — liberty-max handles the rest!
 <details>
 <summary>Manual configuration (advanced)</summary>
 
-If you prefer to configure manually, add the following to `~/.liberty-max/config.json`:
+If you prefer to configure manually, add the following to `config.json`:
 
 > Keep `claw_token` private. It should only be sent in `X-Claw-Token` header to your Mochat API endpoint.
 
@@ -577,7 +577,7 @@ Simply send the command above to your liberty-max (via CLI or any chat channel),
 
 ## ⚙️ Configuration
 
-Config file: `~/.liberty-max/config.json`
+Config file: `config.json`
 
 ### Providers
 
@@ -617,7 +617,7 @@ Codex uses OAuth instead of API keys. Requires a ChatGPT Plus or Pro account.
 liberty-max provider login openai-codex
 ```
 
-**2. Set model** (merge into `~/.liberty-max/config.json`):
+**2. Set model** (merge into `config.json`):
 ```json
 {
   "agents": {
@@ -672,7 +672,7 @@ Run your own model with vLLM or any OpenAI-compatible server, then add to config
 vllm serve meta-llama/Llama-3.1-8B-Instruct --port 8000
 ```
 
-**2. Add to config** (partial — merge into `~/.liberty-max/config.json`):
+**2. Add to config** (partial — merge into `config.json`):
 
 *Provider (key can be any non-empty string for local):*
 ```json
@@ -873,7 +873,7 @@ The agent can also manage this file itself — ask it to "add a periodic task" a
 
 ```bash
 docker compose run --rm liberty-max-cli onboard   # first-time setup
-vim ~/.liberty-max/config.json                     # add API keys
+vim config.json                     # add API keys
 docker compose up -d liberty-max-gateway           # start gateway
 ```
 
@@ -893,7 +893,7 @@ docker build -t liberty-max .
 docker run -v ~/.liberty-max:/root/.liberty-max --rm liberty-max onboard
 
 # Edit config on host to add API keys
-vim ~/.liberty-max/config.json
+vim config.json
 
 # Run gateway (connects to enabled channels, e.g. Telegram/Discord/Mochat)
 docker run -v ~/.liberty-max:/root/.liberty-max -p 18790:18790 liberty-max gateway
