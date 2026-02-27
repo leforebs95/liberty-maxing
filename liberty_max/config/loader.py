@@ -1,14 +1,19 @@
 """Configuration loading utilities."""
 
 import json
+import os
 from pathlib import Path
 
 from liberty_max.config.schema import Config
 
 
 def get_config_path() -> Path:
-    """Get the default configuration file path."""
-    return Path("config.json")
+    """Get the default configuration file path.
+
+    Respects the LIBERTY_MAX_CONFIG environment variable, falling back to
+    config.json in the current working directory.
+    """
+    return Path(os.environ.get("LIBERTY_MAX_CONFIG", "config.json"))
 
 
 def get_data_dir() -> Path:
