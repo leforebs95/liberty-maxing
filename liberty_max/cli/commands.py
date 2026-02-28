@@ -196,7 +196,7 @@ def onboard():
     
     console.print(f"\n{__logo__} liberty-max is ready!")
     console.print("\nNext steps:")
-    console.print("  1. Add your API key to [cyan]~/.liberty-max/config.json[/cyan]")
+    console.print("  1. Add your API key to [cyan]config.json[/cyan]")
     console.print("     Get one at: https://openrouter.ai/keys")
     console.print("  2. Chat: [cyan]liberty-max agent -m \"Hello!\"[/cyan]")
     console.print("\n[dim]Want Telegram/WhatsApp? See: https://github.com/HKUDS/liberty-max#-chat-apps[/dim]")
@@ -261,7 +261,7 @@ def _make_provider(config: Config):
     spec = find_by_name(provider_name)
     if not model.startswith("bedrock/") and not (p and p.api_key) and not (spec and spec.is_oauth):
         console.print("[red]Error: No API key configured.[/red]")
-        console.print("Set one in ~/.liberty-max/config.json under providers section")
+        console.print("Set one in config.json under providers section")
         raise typer.Exit(1)
 
     return LiteLLMProvider(
