@@ -22,13 +22,13 @@ We aim to respond to security reports within 48 hours.
 
 ```bash
 # ✅ Good: Store in config file with restricted permissions
-chmod 600 ~/.liberty-max/config.json
+chmod 600 config.json
 
 # ❌ Bad: Hardcoding keys in code or committing them
 ```
 
 **Recommendations:**
-- Store API keys in `~/.liberty-max/config.json` with file permissions set to `0600`
+- Store API keys in `config.json` with file permissions set to `0600`
 - Consider using environment variables for sensitive keys
 - Use OS keyring/credential manager for production deployments
 - Rotate API keys regularly
@@ -145,7 +145,7 @@ For production use:
 3. **Set Proper Permissions**
    ```bash
    chmod 700 ~/.liberty-max
-   chmod 600 ~/.liberty-max/config.json
+   chmod 600 config.json
    chmod 700 ~/.liberty-max/whatsapp-auth
    ```
 
