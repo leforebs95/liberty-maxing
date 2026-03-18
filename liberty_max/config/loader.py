@@ -52,6 +52,34 @@ def load_config(config_path: Path | None = None) -> Config:
     return Config()
 
 
+def load_raw_config(config_path: Path | None = None) -> Config:
+    """
+    Load configuration from file without expanding ${VAR} references.
+
+    Used by save round-trips (e.g. onboard --refresh) so that placeholder
+    strings are preserved in the file rather than being replaced with resolved
+    secret values.
+
+    Args:
+        config_path: Optional path to config file. Uses default if not provided.
+
+    Returns:
+        Loaded configuration object with unexpanded placeholder strings.
+    """
+    path = config_path or get_config_path()
+
+    if path.exists():
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            return Config.model_validate(data)
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"Warning: Failed to load config from {path}: {e}")
+            print("Using default configuration.")
+
+    return Config()
+
+
 def save_config(config: Config, config_path: Path | None = None) -> None:
     """
     Save configuration to file.

@@ -162,7 +162,7 @@ def main(
 @app.command()
 def onboard():
     """Initialize liberty-max configuration and workspace."""
-    from liberty_max.config.loader import get_config_path, load_config, save_config
+    from liberty_max.config.loader import get_config_path, load_raw_config, save_config
     from liberty_max.config.schema import Config
     from liberty_max.utils.helpers import get_workspace_path
     
@@ -177,7 +177,7 @@ def onboard():
             save_config(config)
             console.print(f"[green]✓[/green] Config reset to defaults at {config_path}")
         else:
-            config = load_config()
+            config = load_raw_config()
             save_config(config)
             console.print(f"[green]✓[/green] Config refreshed at {config_path} (existing values preserved)")
     else:
