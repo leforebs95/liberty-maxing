@@ -10,6 +10,8 @@
     }
   },
   "channels": {
+    "sendProgress": true,
+    "sendToolHints": false,
     "whatsapp": {
       "enabled": false,
       "bridgeUrl": "ws://localhost:3001",
@@ -24,7 +26,8 @@
         "6846442606|guiljg",
         "8435955626"
       ],
-      "proxy": null
+      "proxy": null,
+      "replyToMessage": false
     },
     "discord": {
       "enabled": false,
@@ -191,6 +194,11 @@
       "apiBase": null,
       "extraHeaders": null
     },
+    "volcengine": {
+      "apiKey": "",
+      "apiBase": null,
+      "extraHeaders": null
+    },
     "openaiCodex": {
       "apiKey": "",
       "apiBase": null,
@@ -204,12 +212,16 @@
   },
   "gateway": {
     "host": "0.0.0.0",
-    "port": 18790
+    "port": 18790,
+    "heartbeat": {
+      "enabled": true,
+      "intervalS": 1800
+    }
   },
   "tools": {
     "web": {
       "search": {
-        "apiKey": "{BRAVE_SEARCH_API_KEY}",
+        "apiKey": "${BRAVE_SEARCH_API_KEY}",
         "maxResults": 3
       }
     },
@@ -219,13 +231,33 @@
     "restrictToWorkspace": false,
     "mcpServers": {
       "alpaca": {
-        "type": "stdio",
         "command": "uv",
-        "args": ["--project=/Users/max/alpaca-mcp-server", "run", "alpaca-mcp-server", "serve"],
+        "args": [
+          "--project=/Users/max/alpaca-mcp-server",
+          "run",
+          "alpaca-mcp-server",
+          "serve"
+        ],
         "env": {
-          "ALPACA_API_KEY": "{ALPACA_API_KEY}",
-          "ALPACA_SECRET_KEY":   "{ALPACA_SECRET_KEY}"
-        }
+          "ALPACA_API_KEY": "${ALPACA_API_KEY}",
+          "ALPACA_SECRET_KEY": "${ALPACA_SECRET_KEY}"
+        },
+        "url": "",
+        "headers": {},
+        "toolTimeout": 30
+      },
+      "brave-search": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-brave-search"
+        ],
+        "env": {
+          "BRAVE_API_KEY": "${BRAVE_SEARCH_API_KEY}"
+        },
+        "url": "",
+        "headers": {},
+        "toolTimeout": 30
       }
     }
   }
