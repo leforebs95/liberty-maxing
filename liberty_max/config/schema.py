@@ -374,4 +374,4 @@ class Config(BaseSettings):
                 return spec.default_api_base
         return None
 
-    model_config = SettingsConfigDict(env_prefix="NANOBOT_", env_nested_delimiter="__", populate_by_name=True)
+    model_config = SettingsConfigDict(populate_by_name=True)
