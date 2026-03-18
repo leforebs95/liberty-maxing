@@ -4,6 +4,8 @@ import json
 import os
 from pathlib import Path
 
+from pydantic_settings import EnvSettingsSource, SettingsConfigDict
+
 from liberty_max.config.schema import Config
 
 
@@ -24,7 +26,11 @@ def get_data_dir() -> Path:
 
 def load_config(config_path: Path | None = None) -> Config:
     """
-    Load configuration from file or create default.
+    Load configuration from file, with environment variables taking precedence.
+
+    Reads structure and non-secret values from the JSON config file. Any field
+    can be overridden via environment variables using the NANOBOT_ prefix and
+    double-underscore nesting (e.g. NANOBOT_PROVIDERS__ANTHROPIC__API_KEY).
 
     Args:
         config_path: Optional path to config file. Uses default if not provided.
@@ -34,17 +40,37 @@ def load_config(config_path: Path | None = None) -> Config:
     """
     path = config_path or get_config_path()
 
+    # Read and normalize the JSON file to snake_case via a pydantic round-trip.
+    # This ensures keys are consistent with what EnvSettingsSource produces so
+    # that deep_update correctly merges values and env vars can override file values.
+    file_data: dict = {}
     if path.exists():
         try:
             with open(path, encoding="utf-8") as f:
-                data = json.load(f)
-            data = _migrate_config(data)
-            return Config.model_validate(data)
+                raw = json.load(f)
+            file_data = Config.model_validate(raw).model_dump()
         except (json.JSONDecodeError, ValueError) as e:
             print(f"Warning: Failed to load config from {path}: {e}")
             print("Using default configuration.")
 
-    return Config()
+    class _Config(Config):
+        model_config = SettingsConfigDict(
+            env_prefix="NANOBOT_",
+            env_nested_delimiter="__",
+            populate_by_name=True,
+        )
+
+        @classmethod
+        def settings_customise_sources(cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings):
+            # env vars have higher priority than JSON file data (passed as init kwargs)
+            return (EnvSettingsSource(settings_cls), init_settings)
+
+    try:
+        return _Config(**file_data)
+    except Exception as e:
+        print(f"Warning: Failed to load config: {e}")
+        print("Using default configuration.")
+        return Config()
 
 
 def save_config(config: Config, config_path: Path | None = None) -> None:
@@ -62,13 +88,3 @@ def save_config(config: Config, config_path: Path | None = None) -> None:
 
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-
-
-def _migrate_config(data: dict) -> dict:
-    """Migrate old config formats to current."""
-    # Move tools.exec.restrictToWorkspace → tools.restrictToWorkspace
-    tools = data.get("tools", {})
-    exec_cfg = tools.get("exec", {})
-    if "restrictToWorkspace" in exec_cfg and "restrictToWorkspace" not in tools:
-        tools["restrictToWorkspace"] = exec_cfg.pop("restrictToWorkspace")
-    return data

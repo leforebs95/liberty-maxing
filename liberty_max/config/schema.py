@@ -1,9 +1,9 @@
 """Configuration schema using Pydantic."""
 
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 from pydantic.alias_generators import to_camel
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Base(BaseModel):
@@ -281,6 +281,16 @@ class ToolsConfig(Base):
     restrict_to_workspace: bool = False  # If true, restrict all tool access to workspace directory
     mcp_servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_restrict_to_workspace(cls, data: dict) -> dict:
+        """Migrate tools.exec.restrictToWorkspace → tools.restrictToWorkspace."""
+        if isinstance(data, dict):
+            exec_cfg = data.get("exec", {})
+            if isinstance(exec_cfg, dict) and "restrictToWorkspace" in exec_cfg and "restrictToWorkspace" not in data:
+                data["restrictToWorkspace"] = exec_cfg.pop("restrictToWorkspace")
+        return data
+
 
 class Config(BaseSettings):
     """Root configuration for liberty-max."""
@@ -364,4 +374,4 @@ class Config(BaseSettings):
                 return spec.default_api_base
         return None
 
-    model_config = ConfigDict(env_prefix="NANOBOT_", env_nested_delimiter="__")
+    model_config = SettingsConfigDict(env_prefix="NANOBOT_", env_nested_delimiter="__", populate_by_name=True)
