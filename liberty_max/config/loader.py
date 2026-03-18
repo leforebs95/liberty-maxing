@@ -24,7 +24,12 @@ def get_data_dir() -> Path:
 
 def load_config(config_path: Path | None = None) -> Config:
     """
-    Load configuration from file or create default.
+    Load configuration from file, expanding ${VAR} references from the environment.
+
+    String values in the JSON file that match the ${VAR_NAME} pattern are replaced
+    with the corresponding environment variable at load time. This keeps secrets out
+    of the config file itself — store them as plain environment variables and
+    reference them in config.json using ${VAR_NAME} syntax.
 
     Args:
         config_path: Optional path to config file. Uses default if not provided.
@@ -37,8 +42,36 @@ def load_config(config_path: Path | None = None) -> Config:
     if path.exists():
         try:
             with open(path, encoding="utf-8") as f:
+                raw = f.read()
+            data = json.loads(os.path.expandvars(raw))
+            return Config.model_validate(data)
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"Warning: Failed to load config from {path}: {e}")
+            print("Using default configuration.")
+
+    return Config()
+
+
+def load_raw_config(config_path: Path | None = None) -> Config:
+    """
+    Load configuration from file without expanding ${VAR} references.
+
+    Used by save round-trips (e.g. onboard --refresh) so that placeholder
+    strings are preserved in the file rather than being replaced with resolved
+    secret values.
+
+    Args:
+        config_path: Optional path to config file. Uses default if not provided.
+
+    Returns:
+        Loaded configuration object with unexpanded placeholder strings.
+    """
+    path = config_path or get_config_path()
+
+    if path.exists():
+        try:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
-            data = _migrate_config(data)
             return Config.model_validate(data)
         except (json.JSONDecodeError, ValueError) as e:
             print(f"Warning: Failed to load config from {path}: {e}")
@@ -62,13 +95,3 @@ def save_config(config: Config, config_path: Path | None = None) -> None:
 
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-
-
-def _migrate_config(data: dict) -> dict:
-    """Migrate old config formats to current."""
-    # Move tools.exec.restrictToWorkspace → tools.restrictToWorkspace
-    tools = data.get("tools", {})
-    exec_cfg = tools.get("exec", {})
-    if "restrictToWorkspace" in exec_cfg and "restrictToWorkspace" not in tools:
-        tools["restrictToWorkspace"] = exec_cfg.pop("restrictToWorkspace")
-    return data
